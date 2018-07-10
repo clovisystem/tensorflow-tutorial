@@ -2,7 +2,7 @@
 #   house_price_prediction.py
 #
 #   This is a very simple prediction of house prices based on house size, implemented
-#   in Tensorflow. This code is part of Pluralsight's course "Tensorflow: Getting Started"
+#   in Tensorflow. This code is part of Pluralsight's course 'Tensorflow: Getting Started'
 #
 from absl import flags
 from absl import app
@@ -11,6 +11,11 @@ import numpy as np
 import math
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import os, shutil
+
+model_path = '/tmp/save_model'
+if os.path.isdir(model_path):
+    shutil.rmtree(model_path)
 
 FLAGS = flags.FLAGS
 
@@ -20,11 +25,17 @@ flags.DEFINE_string('summaries_dir','/tmp/tf/', '')
 def normalize(array):
     return (array - array.mean()) / array.std()
 
+def normalize_single_value(value, array):
+    return (value - array.mean()) / array.std()
+
+def denormalize(value, array):
+    return value * array.std() + array.mean()
+
 def generate_initial_plot(house_size, house_price):
     # Plot generated hours and size
-    plt.plot(house_size, house_price, "bx") # bx = blue x
-    plt.ylabel("Price")
-    plt.xlabel("Size")
+    plt.plot(house_size, house_price, 'bx') # bx = blue x
+    plt.ylabel('Price')
+    plt.xlabel('Size')
     plt.show()
 
 def prepare_train_data(house_price, house_size, num_train_samples):
@@ -44,7 +55,6 @@ def generate_data():
     num_house = 160
     np.random.seed(42)
     house_size = np.random.randint(low=90, high=325, size=num_house)
-    # house_size = np.random.randint(low=1000, high=3500, size=num_house)
 
     # Generate house prices from the sizes with a random noise added
     np.random.seed(42)
@@ -54,7 +64,7 @@ def generate_data():
 
 def generate_final_plot(train_house_size, train_price, test_house_size, test_house_price, train_house_size_norm, train_house_size_std, train_house_size_mean, sess, tf_size_factor, tf_price_offset, train_price_std, train_price_mean):
     # Plot the graph
-    plt.rcParams["figure.figsize"] = (10,8)
+    plt.rcParams['figure.figsize'] = (10,8)
     plt.figure()
     plt.ylabel('Price')
     plt.xlabel('Size (sq.mt)')
@@ -112,20 +122,22 @@ def main(args):
     # Define the operations for the predicting values.
     # Notice, the use of the tensorflow add and multiply operations.
     tf_price_pred = tf.add(tf.multiply(tf_size_factor, tf_house_size), tf_price_offset)
-    tf.summary.histogram("price_pred", tf_price_pred)
+    tf.summary.histogram('price_pred', tf_price_pred)
 
     # Define the loss function (how much error) - Mean Squared Error
     tf_cost = tf.reduce_sum(tf.pow(tf_price_pred - tf_price, 2)) / (2 * num_train_samples)
-    tf.summary.scalar("loss", tf_cost)
+    tf.summary.scalar('loss', tf_cost)
 
     # Optimizer learning rate. The size of the steps down towards the gradient.
     learning_rate = 0.1
 
-    # Define a Gradient Descent optimizer that will minimize the loss defined in the operation "cost".
+    # Define a Gradient Descent optimizer that will minimize the loss defined in the operation 'cost'.
     optimizer = tf.train.GradientDescentOptimizer(learning_rate).minimize(tf_cost)
 
     # Initializing the variables
     init = tf.global_variables_initializer()
+
+    simple_save = tf.saved_model.simple_save
 
     # Launch the graph in the session
     with tf.Session() as sess:
@@ -133,7 +145,7 @@ def main(args):
 
         # Set how often to display the training progress and number of training iterations
         display_every = 2
-        num_training_iter = 150
+        num_training_iter = 80
 
         # Calculate the number of lines to animation
         fit_num_plots = math.floor(num_training_iter / display_every)
@@ -151,6 +163,7 @@ def main(args):
 
             # Fit all training data
             for (x, y) in zip(train_house_size_norm, train_price_norm):
+                print("size:",x,"price",y)
                 sess.run(optimizer, feed_dict={tf_house_size: x, tf_price: y})
 
             # Display current status
@@ -158,16 +171,24 @@ def main(args):
                 c, summary = sess.run([tf_cost, merged], feed_dict={tf_house_size: train_house_size_norm, tf_price: train_price_norm})
                 train_writer.add_summary(summary, iteration)
 
-                print("iteration #:", '%04d' % (iteration + 1), "cost=", "{:.9f}".format(c), \
-                    "size_factor=", sess.run(tf_size_factor), "price_offset=", sess.run(tf_price_offset))
+                print('iteration #:', '%04d' % (iteration + 1), 'cost=', '{:.9f}'.format(c), \
+                    'size_factor=', sess.run(tf_size_factor), 'price_offset=', sess.run(tf_price_offset))
                 # Save the fit size_factor and price_offfset to allow animation of learning process
                 fit_size_factor[fit_plot_idx] = sess.run(tf_size_factor)
                 fit_price_offsets[fit_plot_idx] = sess.run(tf_price_offset)
                 fit_plot_idx += 1
 
-        print('Optimization Finished!')
+
+        simple_save(sess,
+                    model_path,
+                    inputs={"tf_house_size": tf_house_size}, outputs={"tf_price_pred": tf_price_pred})
+        print('Optimization Finished and model save in (', model_path,')!')
         training_cost = sess.run(tf_cost, feed_dict={tf_house_size: train_house_size_norm, tf_price: train_price_norm})
         print('Trained cost=', training_cost, 'size_factor=', sess.run(tf_size_factor), 'price_offset=', sess.run(tf_price_offset), '\n')
+
+        value = normalize_single_value(230, house_size)
+        print(value)
+        print("Prediction:", denormalize(sess.run(tf_price_pred, feed_dict={tf_house_size:value}), house_price ))
 
         # Get values sued to normalized data so we can denormalize data back to its original scale
         train_house_size_mean = train_house_size.mean()
@@ -175,7 +196,6 @@ def main(args):
 
         train_price_mean = train_price.mean()
         train_price_std = train_price.std()
-
 
         generate_final_plot(train_house_size, train_price, test_house_size,
                             test_house_price, train_house_size_norm, train_house_size_std,
