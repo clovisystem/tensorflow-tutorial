@@ -1,6 +1,6 @@
 # Tensorflow tutorial
 
-This is a code adapted from this [awesome example](https://github.com/Slaski/Tensorflow-Getting-Started/blob/master/house_price_prediction.py). I used this code during my learning process of Tensorflow. Also, I used this code as an explanation on this [tutorial post on Medium]().
+This is a code adapted from this [awesome example](https://github.com/Slaski/Tensorflow-Getting-Started/blob/master/house_price_prediction.py). I used this code during my learning process of Tensorflow. Also, I used this code as an explanation on this [tutorial post on Medium](https://medium.com/@evandroferreiras/tensorflow-prevendo-o-pre%C3%A7o-de-casas-com-base-na-sua-%C3%A1rea-total-abe0306d8688).
 
 ## Setting up the environment
 1. Install Python 3, pip and Virtualenv
